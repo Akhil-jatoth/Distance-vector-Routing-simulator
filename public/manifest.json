@@ -1,0 +1,17 @@
+{
+  "name": "Distance Vector Routing Simulator",
+  "short_name": "DV Simulator",
+  "description": "Interactive educational tool for Distance Vector Routing and Bellman-Ford protocol simulation.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f2b48",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
