@@ -31,6 +31,8 @@ import {
   addLink,
   removeLink,
   setLinkCost,
+  setLinkLoss,
+  setLinkDelay,
   setLinkStatus,
 } from '../engine/topology.js';
 import { encodeScenarioToUrl, decodeScenarioFromUrl } from '../utils/urlState.js';
@@ -352,8 +354,8 @@ export default function SimulatorPage() {
     reinitializeSim(updated);
   };
 
-  const handleAddLink = (src, tgt, cost) => {
-    const updated = addLink(topology, src, tgt, cost);
+  const handleAddLink = (src, tgt, cost, lossPercent = 0, delayMs = 1) => {
+    const updated = addLink(topology, src, tgt, cost, lossPercent, delayMs);
     setTopology(updated);
     reinitializeSim(updated);
   };
@@ -370,6 +372,29 @@ export default function SimulatorPage() {
           round: prev.round,
           type: 'link_change',
           message: `Dynamic Event: Link ${linkId} cost changed to ${newCost}. Recalculation triggered.`,
+        },
+      ],
+    }));
+  };
+
+  const handleSaveLinkProperties = (linkId, { cost, lossPercent, delayMs }) => {
+    let updated = setLinkCost(topology, linkId, cost);
+    if (typeof lossPercent === 'number') {
+      updated = setLinkLoss(updated, linkId, lossPercent);
+    }
+    if (typeof delayMs === 'number') {
+      updated = setLinkDelay(updated, linkId, delayMs);
+    }
+    setTopology(updated);
+    setSimState(prev => ({
+      ...prev,
+      converged: false,
+      events: [
+        ...prev.events,
+        {
+          round: prev.round,
+          type: 'link_change',
+          message: `Dynamic Event: Link ${linkId} properties updated (cost=${cost}, delay=${delayMs ?? 1}ms, loss=${lossPercent ?? 0}%). Recalculation triggered.`,
         },
       ],
     }));
@@ -616,6 +641,7 @@ export default function SimulatorPage() {
         link={editingLink}
         onClose={() => setEditingLink(null)}
         onSaveCost={handleSaveLinkCost}
+        onSaveProperties={handleSaveLinkProperties}
         onToggleStatus={handleToggleLinkStatus}
         onDeleteLink={handleDeleteLink}
         onAddLink={handleAddLink}

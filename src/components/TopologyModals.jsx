@@ -6,16 +6,21 @@ export function LinkEditModal({
   onClose,
   link,
   onSaveCost,
+  onSaveProperties,
   onToggleStatus,
   onDeleteLink,
   onAddLink,
 }) {
   const [costInput, setCostInput] = useState('1');
+  const [delayInput, setDelayInput] = useState('1');
+  const [lossInput, setLossInput] = useState('0');
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (link) {
-      setCostInput(String(link.cost || '1'));
+      setCostInput(String(link.cost ?? '1'));
+      setDelayInput(String(link.delayMs ?? '1'));
+      setLossInput(String(link.lossPercent ?? '0'));
       setShowConfirmDelete(false);
     }
   }, [link]);
@@ -30,15 +35,28 @@ export function LinkEditModal({
   const handleSubmit = e => {
     e.preventDefault();
     const cost = parseInt(costInput, 10);
-    if (isNaN(cost) || cost < 1) {
-      alert('Link cost must be a positive integer (1 to 15).');
+    const delay = parseInt(delayInput, 10);
+    const loss = parseFloat(lossInput);
+
+    if (isNaN(cost) || cost < 1 || cost > 15) {
+      alert('Link cost must be a positive integer between 1 and 15.');
+      return;
+    }
+    if (isNaN(delay) || delay < 1) {
+      alert('Link delay must be a positive integer (>= 1 ms).');
+      return;
+    }
+    if (isNaN(loss) || loss < 0 || loss > 100) {
+      alert('Packet loss percentage must be between 0 and 100%.');
       return;
     }
 
     if (isNew) {
-      onAddLink(src, tgt, cost);
+      onAddLink(src, tgt, cost, loss, delay);
+    } else if (onSaveProperties) {
+      onSaveProperties(link.id || `${src}-${tgt}`, { cost, delayMs: delay, lossPercent: loss });
     } else {
-      onSaveCost(link.id, cost);
+      onSaveCost(link.id || `${src}-${tgt}`, cost);
     }
     onClose();
   };
@@ -87,7 +105,7 @@ export function LinkEditModal({
           <form onSubmit={handleSubmit}>
             <div className="modal-body">
               <div className="form-group">
-                <label className="form-label">Link Metric / Cost (1 to 15):</label>
+                <label className="form-label">Routing Cost / Metric (1 to 15):</label>
                 <input
                   type="number"
                   min="1"
@@ -99,8 +117,47 @@ export function LinkEditModal({
                   required
                 />
                 <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  Positive integer link cost metric used by the Bellman-Ford equation.
+                  Used by the Bellman-Ford equation for shortest-path calculation.
                 </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label">Latency Delay (ms):</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5000"
+                    className="form-input"
+                    value={delayInput}
+                    onChange={e => setDelayInput(e.target.value)}
+                    required
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                    Physical transit time.
+                  </span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Packet Loss (%):</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    className="form-input"
+                    value={lossInput}
+                    onChange={e => setLossInput(e.target.value)}
+                    required
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                    Drop probability (0–100%).
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: 'var(--color-bg-muted)', borderRadius: '4px', fontSize: '11px', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
+                <strong>Note:</strong> Routing cost determines Distance Vector shortest paths. Delay and packet loss only affect packet transmission during Ping, Packet Tracer, and Traffic flows.
               </div>
 
               {!isNew && (
@@ -138,7 +195,7 @@ export function LinkEditModal({
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary">
-                {isNew ? 'Create Link' : 'Save Changes'}
+                {isNew ? 'Create Link' : 'Save Properties'}
               </button>
             </div>
           </form>
@@ -147,6 +204,7 @@ export function LinkEditModal({
     </div>
   );
 }
+
 
 export function AddNodeModal({ isOpen, onClose, onAddNode, existingNodes }) {
   const [nodeId, setNodeId] = useState('');

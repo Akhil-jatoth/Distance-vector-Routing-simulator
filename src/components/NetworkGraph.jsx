@@ -445,6 +445,21 @@ export default function NetworkGraph({
                   strokeLinecap="round"
                 />
 
+                {/* Dotted lossy overlay for links with packet loss */}
+                {Boolean(link.lossPercent && link.lossPercent > 0) && !isDown && (
+                  <line
+                    x1={src.x}
+                    y1={src.y}
+                    x2={tgt.x}
+                    y2={tgt.y}
+                    stroke="#dc2626"
+                    strokeWidth={2}
+                    strokeDasharray="3 4"
+                    strokeLinecap="round"
+                    opacity="0.8"
+                  />
+                )}
+
                 {/* Animated vector message packets if running rounds */}
                 {animating && !isDown && !prefersReducedMotion && (
                   <circle r="5" fill="#2563eb" opacity="0.9">
@@ -456,46 +471,82 @@ export default function NetworkGraph({
                   </circle>
                 )}
 
-                {/* Link Cost Badge - Expanded Touch Target */}
-                <g
-                  transform={`translate(${midX}, ${midY})`}
-                  style={{ cursor: 'pointer', touchAction: 'none' }}
-                  onPointerDown={e => {
-                    e.stopPropagation();
-                    onOpenLinkModal(link);
-                  }}
-                  onClick={e => {
-                    e.stopPropagation();
-                    onOpenLinkModal(link);
-                  }}
-                  title={`Link ${srcId}-${tgtId}: Cost ${link.cost} (${isDown ? 'DOWN' : 'UP'}). Tap to edit or fail link.`}
-                >
-                  {/* Invisible enlarged touch area */}
-                  <rect x="-26" y="-18" width="52" height="36" fill="transparent" />
-                  
-                  <rect
-                    x="-22"
-                    y="-14"
-                    width="44"
-                    height="28"
-                    rx="6"
-                    fill={isDown ? '#fee2e2' : isLoopEdge ? '#fef3c7' : isHighlighted ? '#e0f2fe' : '#ffffff'}
-                    stroke={isDown ? '#ef4444' : isLoopEdge ? '#f59e0b' : isHighlighted ? '#0284c7' : '#cbd5e1'}
-                    strokeWidth="1.5"
-                    filter="url(#shadow)"
-                  />
-                  <text
-                    textAnchor="middle"
-                    dy="5"
-                    fill={isDown ? '#dc2626' : isLoopEdge ? '#b45309' : '#0f172a'}
-                    fontSize="12"
-                    fontWeight="700"
-                    fontFamily="monospace"
-                    pointerEvents="none"
-                  >
-                    {isDown ? 'FAIL' : link.cost}
-                  </text>
-                </g>
+                {/* Link Properties Badge - Cost, Delay, Loss */}
+                {(() => {
+                  const hasCustomProps = (typeof link.delayMs === 'number' && link.delayMs !== 1) || (typeof link.lossPercent === 'number' && link.lossPercent > 0);
+                  const badgeWidth = hasCustomProps ? 64 : 44;
+                  const badgeHeight = hasCustomProps ? 34 : 26;
+
+                  return (
+                    <g
+                      transform={`translate(${midX}, ${midY})`}
+                      style={{ cursor: 'pointer', touchAction: 'none' }}
+                      onPointerDown={e => {
+                        e.stopPropagation();
+                        onOpenLinkModal(link);
+                      }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        onOpenLinkModal(link);
+                      }}
+                      title={`Link ${srcId}-${tgtId}: Cost ${link.cost}, Delay ${link.delayMs ?? 1}ms, Loss ${link.lossPercent ?? 0}% (${isDown ? 'DOWN' : 'UP'}). Click to edit.`}
+                    >
+                      {/* Invisible enlarged touch area */}
+                      <rect x={-badgeWidth / 2 - 4} y={-badgeHeight / 2 - 4} width={badgeWidth + 8} height={badgeHeight + 8} fill="transparent" />
+                      
+                      <rect
+                        x={-badgeWidth / 2}
+                        y={-badgeHeight / 2}
+                        width={badgeWidth}
+                        height={badgeHeight}
+                        rx="6"
+                        fill={isDown ? '#fee2e2' : isLoopEdge ? '#fef3c7' : isHighlighted ? '#e0f2fe' : '#ffffff'}
+                        stroke={isDown ? '#ef4444' : isLoopEdge ? '#f59e0b' : isHighlighted ? '#0284c7' : '#cbd5e1'}
+                        strokeWidth="1.5"
+                        filter="url(#shadow)"
+                      />
+
+                      {hasCustomProps && !isDown ? (
+                        <>
+                          <text
+                            textAnchor="middle"
+                            dy="-2"
+                            fill={isLoopEdge ? '#b45309' : '#0f172a'}
+                            fontSize="11"
+                            fontWeight="700"
+                            fontFamily="monospace"
+                            pointerEvents="none"
+                          >
+                            C:{link.cost}
+                          </text>
+                          <text
+                            textAnchor="middle"
+                            dy="10"
+                            fill="#64748b"
+                            fontSize="8"
+                            fontWeight="600"
+                            fontFamily="monospace"
+                            pointerEvents="none"
+                          >
+                            {link.delayMs ?? 1}ms{link.lossPercent ? ` · ${link.lossPercent}%` : ''}
+                          </text>
+                        </>
+                      ) : (
+                        <text
+                          textAnchor="middle"
+                          dy="4"
+                          fill={isDown ? '#dc2626' : isLoopEdge ? '#b45309' : '#0f172a'}
+                          fontSize="12"
+                          fontWeight="700"
+                          fontFamily="monospace"
+                          pointerEvents="none"
+                        >
+                          {isDown ? 'FAIL' : link.cost}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })()}
               </g>
             );
           })}

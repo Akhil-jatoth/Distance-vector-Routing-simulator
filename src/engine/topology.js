@@ -3,7 +3,8 @@ export const INFINITY = 16;
 /**
  * Validates a topology object.
  * Checks for non-empty nodes, duplicate nodes, valid links, no self-links,
- * positive integer costs, and references to existing nodes.
+ * positive integer costs, valid lossPercent (0-100), valid delayMs (>0 integer),
+ * and references to existing nodes.
  */
 export function validateTopology(topology) {
   const errors = [];
@@ -38,6 +39,8 @@ export function validateTopology(topology) {
       const a = link.a || link.source;
       const b = link.b || link.target;
       const cost = link.cost;
+      const lossPercent = link.lossPercent;
+      const delayMs = link.delayMs;
 
       if (!nodeSet.has(a) || !nodeSet.has(b)) {
         errors.push(`Link at index ${i} references unknown nodes (${a} <-> ${b}).`);
@@ -49,6 +52,18 @@ export function validateTopology(topology) {
 
       if (typeof cost !== 'number' || !Number.isInteger(cost) || cost <= 0) {
         errors.push(`Link (${a} <-> ${b}) cost must be a positive integer.`);
+      }
+
+      if (lossPercent !== undefined && lossPercent !== null) {
+        if (typeof lossPercent !== 'number' || Number.isNaN(lossPercent) || lossPercent < 0 || lossPercent > 100) {
+          errors.push(`Link (${a} <-> ${b}) lossPercent must be a number between 0 and 100.`);
+        }
+      }
+
+      if (delayMs !== undefined && delayMs !== null) {
+        if (typeof delayMs !== 'number' || !Number.isInteger(delayMs) || delayMs <= 0) {
+          errors.push(`Link (${a} <-> ${b}) delayMs must be a positive integer.`);
+        }
       }
 
       const pairKey = [a, b].sort().join('-');
@@ -106,7 +121,7 @@ export function removeNode(topology, node) {
   };
 }
 
-export function addLink(topology, a, b, cost) {
+export function addLink(topology, a, b, cost, lossPercent = 0, delayMs = 1) {
   if (a === b) {
     throw new Error('Cannot add a self-link on the same node.');
   }
@@ -116,6 +131,12 @@ export function addLink(topology, a, b, cost) {
   }
   if (typeof cost !== 'number' || !Number.isInteger(cost) || cost <= 0) {
     throw new Error('Link cost must be a positive integer.');
+  }
+  if (typeof lossPercent !== 'number' || Number.isNaN(lossPercent) || lossPercent < 0 || lossPercent > 100) {
+    throw new Error('Link lossPercent must be a number between 0 and 100.');
+  }
+  if (typeof delayMs !== 'number' || !Number.isInteger(delayMs) || delayMs <= 0) {
+    throw new Error('Link delayMs must be a positive integer.');
   }
 
   const exists = topology.links.some(link => {
@@ -131,7 +152,18 @@ export function addLink(topology, a, b, cost) {
     nodes: [...topology.nodes],
     links: [
       ...topology.links.map(link => ({ ...link })),
-      { id: `${a}-${b}`, a, b, source: a, target: b, cost, up: true, status: 'up' },
+      {
+        id: `${a}-${b}`,
+        a,
+        b,
+        source: a,
+        target: b,
+        cost,
+        lossPercent,
+        delayMs,
+        up: true,
+        status: 'up',
+      },
     ],
   };
 }
@@ -174,6 +206,58 @@ export function setLinkCost(topology, a, b, newCost) {
         (!targetId && ((src === a && tgt === b) || (src === b && tgt === a)))
       ) {
         return { ...link, cost: costVal };
+      }
+      return { ...link };
+    }),
+  };
+}
+
+export function setLinkLoss(topology, a, b, maybeValue) {
+  const isSingleId = maybeValue === undefined;
+  const targetId = isSingleId ? a : null;
+  const lossVal = isSingleId ? b : maybeValue;
+
+  if (typeof lossVal !== 'number' || Number.isNaN(lossVal) || lossVal < 0 || lossVal > 100) {
+    throw new Error('Link lossPercent must be a number between 0 and 100.');
+  }
+
+  return {
+    nodes: [...topology.nodes],
+    links: topology.links.map(link => {
+      const src = link.a || link.source;
+      const tgt = link.b || link.target;
+      const canonical = [src, tgt].sort().join('-');
+      if (
+        (targetId && (link.id === targetId || canonical === targetId)) ||
+        (!targetId && ((src === a && tgt === b) || (src === b && tgt === a)))
+      ) {
+        return { ...link, lossPercent: lossVal };
+      }
+      return { ...link };
+    }),
+  };
+}
+
+export function setLinkDelay(topology, a, b, maybeValue) {
+  const isSingleId = maybeValue === undefined;
+  const targetId = isSingleId ? a : null;
+  const delayVal = isSingleId ? b : maybeValue;
+
+  if (typeof delayVal !== 'number' || !Number.isInteger(delayVal) || delayVal <= 0) {
+    throw new Error('Link delayMs must be a positive integer.');
+  }
+
+  return {
+    nodes: [...topology.nodes],
+    links: topology.links.map(link => {
+      const src = link.a || link.source;
+      const tgt = link.b || link.target;
+      const canonical = [src, tgt].sort().join('-');
+      if (
+        (targetId && (link.id === targetId || canonical === targetId)) ||
+        (!targetId && ((src === a && tgt === b) || (src === b && tgt === a)))
+      ) {
+        return { ...link, delayMs: delayVal };
       }
       return { ...link };
     }),
@@ -240,3 +324,4 @@ export function importTopologyJSON(jsonStr) {
 
   return parsed;
 }
+
